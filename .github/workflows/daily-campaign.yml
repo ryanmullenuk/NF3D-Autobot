@@ -1,0 +1,22 @@
+name: Daily Etsy social campaign
+
+on:
+  schedule:
+    # Runs at both possible UK 09:00 UTC offsets. The API validates Europe/London time.
+    - cron: "0 8,9 * * *"
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger secured campaign endpoint
+        env:
+          AUTOBOT_URL: ${{ secrets.AUTOBOT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$AUTOBOT_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --retry 2 --request POST \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$AUTOBOT_URL/api/cron"
