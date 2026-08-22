@@ -84,28 +84,38 @@ export default function Dashboard() {
   return (
     <main>
       <header className="topbar">
-        <div className="brand"><span className="bot">NF</span><div><strong>NF3D Auto Bot</strong><small>Etsy-first social publishing</small></div></div>
-        <div className="live"><i /> Automation active · 09:00 UK</div>
+        <div className="brand"><span className="bot">NF</span><div><strong>NF3D AUTO BOT</strong><small>Etsy-first social publishing</small></div></div>
+        <nav className="topnav" aria-label="Dashboard sections"><a href="#platforms">Platforms</a><a href="#status">Status</a></nav>
+        <div className="live"><i /> DAILY RUN · 09:00 UK</div>
       </header>
 
       <section className="hero">
-        <div>
-          <p className="eyebrow">NEWFOREST3D CONTROL CENTRE</p>
-          <h1>One catalogue.<br /><em>Every social channel.</em></h1>
-          <p className="lede">Select the channels, choose the number of Etsy products and publish. Live Etsy listings remain the single source of truth.</p>
+        <div className="hero-copy">
+          <p className="eyebrow"><span /> NEWFOREST3D CONTROL CENTRE</p>
+          <h1>Pick products.<br /><em>Post everywhere.</em></h1>
+          <p className="lede">Choose your channels, set the number of products and press run. Every post is built from your live public Etsy shop.</p>
+          <a className="hero-jump" href="#platforms">Build today&apos;s campaign <span>↓</span></a>
         </div>
-        <div className="source-card">
-          <span>CATALOGUE SOURCE</span>
-          <strong>NewForest3D on Etsy</strong>
-          <a href="https://www.etsy.com/uk/shop/NewForest3D" target="_blank">View public shop ↗</a>
-          <div className="source-rule"><b>LIVE</b><span>Prices, descriptions and primary images checked at run time</span></div>
+        <div className="hero-visual" aria-hidden="true">
+          <div className="orbit orbit-one"><span>IG</span><span>P</span><span>f</span></div>
+          <div className="orbit orbit-two"><span>X</span><span>TT</span></div>
+          <div className="bot-core"><b>NF</b><small>AUTO<br />BOT</small></div>
+          <div className="signal signal-one" /><div className="signal signal-two" />
         </div>
       </section>
 
-      <section className="control-strip">
+      <div className="ticker" aria-hidden="true"><div><span>LIVE ETSY DATA</span><b>•</b><span>ONE-CLICK PUBLISHING</span><b>•</b><span>PLATFORM-READY COPY</span><b>•</b><span>LIVE ETSY DATA</span><b>•</b><span>ONE-CLICK PUBLISHING</span><b>•</b><span>PLATFORM-READY COPY</span><b>•</b></div></div>
+
+      <section className="source-bar">
+        <div><span className="number">01</span><p><small>SINGLE SOURCE OF TRUTH</small><strong>NewForest3D on Etsy</strong></p></div>
+        <p>Live prices, descriptions and primary product images are checked at run time.</p>
+        <a href="https://www.etsy.com/uk/shop/NewForest3D" target="_blank" rel="noreferrer">Open public shop ↗</a>
+      </section>
+
+      <section className="control-strip" id="platforms">
         <label><span>Dashboard key</span><input type="password" value={key} onChange={(e) => saveKey(e.target.value)} placeholder="Stored only in this browser" /></label>
-        <div><span>Selected output</span><strong>{total} posts</strong></div>
-        <button className="run-all" disabled={!!busy || total === 0} onClick={runAll}>{busy ? "Publishing…" : "Run all platforms"}</button>
+        <div className="output-count"><span>Selected output</span><strong>{String(total).padStart(2, "0")} <small>posts</small></strong></div>
+        <button className="run-all" disabled={!!busy || total === 0} onClick={runAll}><span>{busy ? "Publishing…" : "Run all platforms"}</span><b>↗</b></button>
       </section>
 
       <section className="platform-grid">
@@ -114,31 +124,32 @@ export default function Dashboard() {
           const item = platforms[platform];
           const ready = status?.[platform]?.configured;
           return (
-            <article className={`platform ${item.enabled ? "selected" : ""}`} key={platform}>
+            <article className={`platform ${meta.colour} ${item.enabled ? "selected" : ""}`} key={platform}>
+              <span className="card-number">0{(Object.keys(platformMeta) as Platform[]).indexOf(platform) + 1}</span>
               <div className="platform-head">
                 <span className={`platform-mark ${meta.colour}`}>{meta.mark}</span>
                 <div><h2>{meta.name}</h2><p>{ready === undefined ? "Checking…" : ready ? "Connected" : "Needs setup"}</p></div>
-                <button className={`toggle ${item.enabled ? "on" : ""}`} aria-label={`Enable ${meta.name}`} onClick={() => update(platform, { enabled: !item.enabled })}><i /></button>
+                <button className={`toggle ${item.enabled ? "on" : ""}`} aria-pressed={item.enabled} aria-label={`Enable ${meta.name}`} onClick={() => update(platform, { enabled: !item.enabled })}><i /></button>
               </div>
               <p className="platform-note">{meta.note}</p>
               {!ready && status?.[platform]?.missing?.length ? <small className="missing">Missing: {status[platform].missing.join(", ")}</small> : null}
               <div className="platform-actions">
                 <div className="stepper"><button onClick={() => update(platform, { count: Math.max(1, item.count - 1) })}>−</button><strong>{item.count}</strong><button onClick={() => update(platform, { count: Math.min(20, item.count + 1) })}>+</button></div>
-                <button className="run-one" disabled={!!busy || !item.enabled} onClick={() => run({ [platform]: item.count }, meta.name)}>Run {meta.name}</button>
+                <button className="run-one" disabled={!!busy || !item.enabled} onClick={() => run({ [platform]: item.count }, meta.name)}>Run {meta.name} <span>↗</span></button>
               </div>
             </article>
           );
         })}
       </section>
 
-      <section className="run-status">
+      <section className="run-status" id="status">
         <div><span className={busy ? "pulse" : "dot"} /><div><strong>Run status</strong><p>{message}</p></div></div>
         <small>The system will stop and record the issue if a platform rejects a publication.</small>
       </section>
 
       {results.length > 0 && <section className="results"><h2>Latest results</h2>{results.map((result, index) => <pre key={index}>{JSON.stringify(result, null, 2)}</pre>)}</section>}
 
-      <footer><span>NF3D Auto Bot</span><p>Credentials are server-side only and never stored in this public website code.</p></footer>
+      <footer><span>NF3D AUTO BOT</span><p>Credentials stay server-side and are never stored in this public website code.</p><a href="#platforms">Back to controls ↑</a></footer>
     </main>
   );
 }
