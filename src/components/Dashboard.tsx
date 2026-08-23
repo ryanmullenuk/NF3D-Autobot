@@ -5,6 +5,14 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 type Platform = "instagram" | "pinterest" | "facebook" | "x" | "tiktok";
 type PlatformState = { enabled: boolean; count: number };
 type ConfigStatus = { configured: boolean; missing: string[] };
+type PublishResult = {
+  platform: Platform;
+  productId: string;
+  productTitle: string;
+  status: "published" | "failed" | "skipped";
+  postUrl?: string;
+  error?: string;
+};
 
 const platformMeta: Record<Platform, { name: string; mark: string; colour: string; note: string }> = {
   instagram: { name: "Instagram", mark: "IG", colour: "coral", note: "Feed photo with Etsy caption and shop route" },
@@ -57,11 +65,31 @@ export default function Dashboard() {
   const [status, setStatus] = useState<Record<Platform, ConfigStatus> | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("Ready when you are.");
-  const [results, setResults] = useState<Array<Record<string, unknown>>>([]);
+  const [results, setResults] = useState<PublishResult[]>([]);
+  const [runTime, setRunTime] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.resolve(window.localStorage.getItem("nf3d-dashboard-key") || "").then(setKey);
+    const savedKey = window.localStorage.getItem("nf3d-dashboard-key") || "";
+    setKey(savedKey);
     fetch("/api/status").then((r) => r.json()).then((d) => setStatus(d.platforms)).catch(() => null);
+    if (savedKey) {
+      fetch("/api/history", { headers: { "x-dashboard-key": savedKey } })
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (!data?.run) return;
+          setResults((data.run.posts || []).map((post: Record<string, string | null>) => ({
+            platform: post.platform as Platform,
+            productId: String(post.etsy_listing_id),
+            productTitle: String(post.product_title),
+            status: post.status as PublishResult["status"],
+            postUrl: post.post_url || undefined,
+            error: post.error || undefined,
+          })));
+          setRunTime(data.run.created_at || null);
+          setMessage(data.run.status === "complete" ? "Latest campaign completed successfully." : "Latest campaign completed with some failed or skipped posts.");
+        })
+        .catch(() => null);
+    }
   }, []);
 
   const total = useMemo(
@@ -95,6 +123,7 @@ export default function Dashboard() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The run could not be started.");
       setResults(data.posts || []);
+      setRunTime(new Date().toISOString());
       setMessage(`${data.summary?.succeeded || 0} published, ${data.summary?.failed || 0} failed, ${data.summary?.skipped || 0} skipped.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The run failed.");
@@ -110,6 +139,14 @@ export default function Dashboard() {
     return run(counts, "all enabled platforms");
   }
 
+  const resultSummary = useMemo(() => ({
+    published: results.filter((result) => result.status === "published").length,
+    failed: results.filter((result) => result.status === "failed").length,
+    skipped: results.filter((result) => result.status === "skipped").length,
+  }), [results]);
+
+  const completionTone = resultSummary.failed || resultSummary.skipped ? "partial" : "success";
+
   return (
     <main>
       <ParticleField />
@@ -118,6 +155,13 @@ export default function Dashboard() {
         <nav className="topnav" aria-label="Dashboard sections"><a href="#platforms">Campaign</a><a href="#status">Activity</a></nav>
         <div className="live"><i /> Next run 09:00 UK</div>
       </header>
+
+      {!busy && results.length > 0 && (
+        <section className={`completion-banner ${completionTone}`} role="status">
+          <div><strong>{completionTone === "success" ? "Campaign completed" : "Campaign completed with issues"}</strong><span>{resultSummary.published} posted · {resultSummary.failed} failed · {resultSummary.skipped} skipped</span></div>
+          {runTime ? <time dateTime={runTime}>{new Date(runTime).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</time> : null}
+        </section>
+      )}
 
       <section className="hero">
         <div className="hero-copy">
@@ -152,6 +196,11 @@ export default function Dashboard() {
           const meta = platformMeta[platform];
           const item = platforms[platform];
           const ready = status?.[platform]?.configured;
+          const platformResults = results.filter((result) => result.platform === platform);
+          const platformPublished = platformResults.filter((result) => result.status === "published").length;
+          const platformFailed = platformResults.filter((result) => result.status === "failed").length;
+          const platformSkipped = platformResults.filter((result) => result.status === "skipped").length;
+          const firstIssue = platformResults.find((result) => result.error)?.error;
           return (
             <article className={`platform ${meta.colour} ${item.enabled ? "selected" : ""}`} key={platform}>
               <div className="platform-head">
@@ -161,6 +210,15 @@ export default function Dashboard() {
               </div>
               <p className="platform-note">{meta.note}</p>
               {!ready && status?.[platform]?.missing?.length ? <small className="missing">Missing: {status[platform].missing.join(", ")}</small> : null}
+              {platformResults.length > 0 && (
+                <div className={`platform-result ${platformFailed || platformSkipped ? "partial" : "success"}`}>
+                  <strong>{platformPublished}/{platformResults.length} posted</strong>
+                  {platformFailed > 0 ? <span>{platformFailed} failed</span> : null}
+                  {platformSkipped > 0 ? <span>{platformSkipped} skipped</span> : null}
+                  {firstIssue ? <small>{firstIssue}</small> : null}
+                  {platformPublished > 0 && <div className="post-links">{platformResults.filter((result) => result.status === "published" && result.postUrl).map((result, index) => <a key={`${result.productId}-${index}`} href={result.postUrl} target="_blank" rel="noreferrer">Post {index + 1}</a>)}</div>}
+                </div>
+              )}
               <div className="platform-actions">
                 <div className="stepper"><button onClick={() => update(platform, { count: Math.max(1, item.count - 1) })}>−</button><strong>{item.count}</strong><button onClick={() => update(platform, { count: Math.min(20, item.count + 1) })}>+</button></div>
                 <button className="run-one" disabled={!!busy || !item.enabled} onClick={() => run({ [platform]: item.count }, meta.name)}>Run {meta.name} <span>→</span></button>
@@ -175,7 +233,7 @@ export default function Dashboard() {
         <small>The system will stop and record the issue if a platform rejects a publication.</small>
       </section>
 
-      {results.length > 0 && <section className="results"><h2>Latest results</h2>{results.map((result, index) => <pre key={index}>{JSON.stringify(result, null, 2)}</pre>)}</section>}
+      {results.length > 0 && <section className="results"><h2>Latest run details</h2>{results.map((result, index) => <article key={`${result.platform}-${result.productId}-${index}`} className={`result-row ${result.status}`}><div><strong>{result.productTitle}</strong><span>{platformMeta[result.platform].name} · {result.status}</span></div>{result.postUrl ? <a href={result.postUrl} target="_blank" rel="noreferrer">View post</a> : <small>{result.error || "No publication URL returned."}</small>}</article>)}</section>}
 
       <footer><span>NF3D Auto Bot</span><p>Credentials stay server-side and are never stored in this public website code.</p><div className="footer-links"><a href="/privacy">Privacy</a><a href="#platforms">Back to campaign</a></div></footer>
     </main>

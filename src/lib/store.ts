@@ -37,3 +37,23 @@ export async function alreadyRanToday() {
   const { data } = await db.from("campaign_runs").select("id").eq("trigger", "schedule").gte("created_at", `${parts}T00:00:00Z`).limit(1);
   return Boolean(data?.length);
 }
+
+export async function latestRun() {
+  const db = client();
+  if (!db) return null;
+  const { data: runs, error: runError } = await db
+    .from("campaign_runs")
+    .select("id, trigger, product_count, status, created_at")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (runError) throw new Error(`Run history is unavailable: ${runError.message}`);
+  const run = runs?.[0];
+  if (!run) return null;
+  const { data: posts, error: postError } = await db
+    .from("campaign_posts")
+    .select("platform, etsy_listing_id, product_title, status, post_url, error, created_at")
+    .eq("run_id", run.id)
+    .order("created_at", { ascending: true });
+  if (postError) throw new Error(`Post history is unavailable: ${postError.message}`);
+  return { ...run, posts: posts || [] };
+}
