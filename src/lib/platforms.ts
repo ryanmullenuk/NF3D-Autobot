@@ -3,13 +3,19 @@ import OAuth from "oauth-1.0a";
 import { createCopy } from "./copy";
 import type { EtsyProduct, Platform, PublishResult } from "./types";
 
-async function jsonFetch(url: string, init: RequestInit) {
-  const response = await fetch(url, init);
-  const text = await response.text();
-  let body: Record<string, unknown> = {};
-  try { body = JSON.parse(text); } catch { body = { message: text }; }
-  if (!response.ok) throw new Error(`${response.status}: ${JSON.stringify(body)}`);
-  return body;
+async function jsonFetch(url: string, init: RequestInit, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const response = await fetch(url, init);
+    const text = await response.text();
+    let body: Record<string, unknown> = {};
+    try { body = JSON.parse(text); } catch { body = { message: text }; }
+    if (response.ok) return body;
+    const metaError = body.error as { code?: number; is_transient?: boolean } | undefined;
+    const retryable = response.status === 429 || response.status >= 500 || metaError?.is_transient || [1, 2, 4, 17, 32, 341, 613].includes(metaError?.code || 0);
+    if (!retryable || attempt === retries) throw new Error(`${response.status}: ${JSON.stringify(body)}`);
+    await new Promise((resolve) => setTimeout(resolve, 1800 * (attempt + 1)));
+  }
+  throw new Error("The platform request failed.");
 }
 
 function metaUrl(path: string) {
@@ -22,7 +28,15 @@ async function instagram(product: EtsyProduct) {
   const token = process.env.META_ACCESS_TOKEN!;
   const copy = createCopy(product, "instagram");
   const container = await jsonFetch(metaUrl(`${userId}/media`), { method: "POST", body: new URLSearchParams({ image_url: product.imageUrl, caption: copy.caption, access_token: token }) });
-  const published = await jsonFetch(metaUrl(`${userId}/media_publish`), { method: "POST", body: new URLSearchParams({ creation_id: String(container.id), access_token: token }) });
+  const creationId = String(container.id);
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    const check = await jsonFetch(metaUrl(`${creationId}?fields=status_code,status&access_token=${encodeURIComponent(token)}`), { method: "GET" });
+    if (check.status_code === "FINISHED") break;
+    if (check.status_code === "ERROR" || check.status_code === "EXPIRED") throw new Error(`Instagram could not prepare the image: ${String(check.status || check.status_code)}`);
+    if (attempt === 14) throw new Error("Instagram did not finish preparing the image within 45 seconds.");
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  const published = await jsonFetch(metaUrl(`${userId}/media_publish`), { method: "POST", body: new URLSearchParams({ creation_id: creationId, access_token: token }) });
   const media = await jsonFetch(metaUrl(`${String(published.id)}?fields=permalink&access_token=${encodeURIComponent(token)}`), { method: "GET" });
   return String(media.permalink || `instagram-media:${published.id}`);
 }
@@ -54,8 +68,11 @@ async function x(product: EtsyProduct) {
   const token = { key: process.env.X_ACCESS_TOKEN!, secret: process.env.X_ACCESS_TOKEN_SECRET! };
   const imageResponse = await fetch(product.imageUrl);
   if (!imageResponse.ok) throw new Error("The Etsy image could not be downloaded for X.");
+  const imageBytes = await imageResponse.arrayBuffer();
+  const imageType = imageResponse.headers.get("content-type") || "image/jpeg";
+  const extension = imageType.includes("png") ? "png" : imageType.includes("webp") ? "webp" : "jpg";
   const form = new FormData();
-  form.append("media_data", Buffer.from(await imageResponse.arrayBuffer()).toString("base64"));
+  form.append("media", new Blob([imageBytes], { type: imageType }), `etsy-${product.id}.${extension}`);
   const uploadUrl = "https://upload.twitter.com/1.1/media/upload.json";
   const uploadHeaders = { Authorization: oauth.toHeader(oauth.authorize({ url: uploadUrl, method: "POST" }, token)).Authorization };
   const upload = await jsonFetch(uploadUrl, { method: "POST", headers: uploadHeaders, body: form });
@@ -90,7 +107,9 @@ export async function publish(platform: Platform, product: EtsyProduct): Promise
     const postUrl = await publishers[platform](product);
     return { platform, productId: product.id, productTitle: product.title, status: "published", postUrl };
   } catch (error) {
-    return { platform, productId: product.id, productTitle: product.title, status: "failed", error: error instanceof Error ? error.message : "Unknown publication error" };
+    const message = error instanceof Error ? error.message : "Unknown publication error";
+    console.error("Publication failed", { platform, productId: product.id, productTitle: product.title, error: message });
+    return { platform, productId: product.id, productTitle: product.title, status: "failed", error: message };
   }
 }
 

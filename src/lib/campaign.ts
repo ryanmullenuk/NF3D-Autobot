@@ -18,7 +18,11 @@ export async function runCampaign(counts: Partial<Record<Platform, number>>, tri
       results.push(...products.slice(0, count).map((product) => ({ platform, productId: product.id, productTitle: product.title, status: "skipped" as const, error: `Missing configuration: ${config[platform].missing.join(", ")}` })));
       continue;
     }
-    for (const product of products.slice(0, count)) results.push(await publish(platform, product));
+    const platformProducts = products.slice(0, count);
+    for (let index = 0; index < platformProducts.length; index += 1) {
+      results.push(await publish(platform, platformProducts[index]));
+      if (index < platformProducts.length - 1) await new Promise((resolve) => setTimeout(resolve, 1800));
+    }
   }
   const runId = crypto.randomUUID();
   await saveRun(runId, products, results, trigger);

@@ -18,8 +18,10 @@ export async function recentProductIds(days = 21): Promise<Set<string>> {
 export async function saveRun(runId: string, products: EtsyProduct[], results: PublishResult[], trigger: string) {
   const db = client();
   if (!db) return;
-  await db.from("campaign_runs").upsert({ id: runId, trigger, product_count: products.length, status: results.some((r) => r.status === "failed") ? "partial" : "complete" });
-  if (results.length) await db.from("campaign_posts").insert(results.map((result) => ({
+  const { error: runError } = await db.from("campaign_runs").upsert({ id: runId, trigger, product_count: products.length, status: results.some((r) => r.status !== "published") ? "partial" : "complete" });
+  if (runError) console.error("Could not save campaign run", runError.message);
+  if (results.length) {
+    const { error: postError } = await db.from("campaign_posts").insert(results.map((result) => ({
     run_id: runId,
     platform: result.platform,
     etsy_listing_id: result.productId,
@@ -27,7 +29,9 @@ export async function saveRun(runId: string, products: EtsyProduct[], results: P
     status: result.status,
     post_url: result.postUrl || null,
     error: result.error || null,
-  })));
+    })));
+    if (postError) console.error("Could not save campaign post results", postError.message);
+  }
 }
 
 export async function alreadyRanToday() {

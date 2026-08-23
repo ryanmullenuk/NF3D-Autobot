@@ -70,13 +70,22 @@ export default function Dashboard() {
 
   useEffect(() => {
     const savedKey = window.localStorage.getItem("nf3d-dashboard-key") || "";
+    const loadLocalResult = () => {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem("nf3d-latest-run") || "null") as { posts?: PublishResult[]; runTime?: string; message?: string } | null;
+        if (!saved?.posts?.length) return;
+        setResults(saved.posts);
+        setRunTime(saved.runTime || null);
+        setMessage(saved.message || "Latest campaign results restored.");
+      } catch { /* Ignore invalid browser history. */ }
+    };
     setKey(savedKey);
     fetch("/api/status").then((r) => r.json()).then((d) => setStatus(d.platforms)).catch(() => null);
     if (savedKey) {
       fetch("/api/history", { headers: { "x-dashboard-key": savedKey } })
         .then((r) => r.ok ? r.json() : null)
         .then((data) => {
-          if (!data?.run) return;
+          if (!data?.run) { loadLocalResult(); return; }
           setResults((data.run.posts || []).map((post: Record<string, string | null>) => ({
             platform: post.platform as Platform,
             productId: String(post.etsy_listing_id),
@@ -88,7 +97,9 @@ export default function Dashboard() {
           setRunTime(data.run.created_at || null);
           setMessage(data.run.status === "complete" ? "Latest campaign completed successfully." : "Latest campaign completed with some failed or skipped posts.");
         })
-        .catch(() => null);
+        .catch(loadLocalResult);
+    } else {
+      loadLocalResult();
     }
   }, []);
 
@@ -123,8 +134,11 @@ export default function Dashboard() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The run could not be started.");
       setResults(data.posts || []);
-      setRunTime(new Date().toISOString());
-      setMessage(`${data.summary?.succeeded || 0} published, ${data.summary?.failed || 0} failed, ${data.summary?.skipped || 0} skipped.`);
+      const completedAt = new Date().toISOString();
+      const completedMessage = `${data.summary?.succeeded || 0} published, ${data.summary?.failed || 0} failed, ${data.summary?.skipped || 0} skipped.`;
+      setRunTime(completedAt);
+      setMessage(completedMessage);
+      window.localStorage.setItem("nf3d-latest-run", JSON.stringify({ posts: data.posts || [], runTime: completedAt, message: completedMessage }));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "The run failed.");
     } finally {
