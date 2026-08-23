@@ -112,6 +112,15 @@ footer { padding: 28px clamp(24px, 6vw, 92px); display: grid; grid-template-colu
 footer span { color: #354e5f; font-size: 12px; font-weight: 700; }
 footer p { margin: 0; text-align: center; }
 footer a { color: #3b667d; text-decoration: none; }
+.footer-links { display: flex; gap: 18px; }
+
+.policy-page { min-height: 100vh; padding: 72px 24px; }
+.policy-card { width: min(760px, 100%); margin: 0 auto; padding: clamp(28px, 6vw, 64px); border: 1px solid rgba(255,255,255,.78); border-radius: 26px; background: rgba(255,255,255,.7); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); }
+.policy-card h1 { color: var(--ink); font-size: clamp(42px, 7vw, 68px); }
+.policy-card h2 { margin: 34px 0 8px; font-size: 18px; }
+.policy-card p { color: var(--muted); line-height: 1.7; }
+.policy-label { margin: 0 0 18px; font-size: 10px; font-weight: 750; letter-spacing: .15em; }
+.policy-back { display: inline-block; margin-top: 30px; color: var(--blue); font-weight: 650; text-decoration: none; }
 
 @keyframes pulse { 50% { opacity: .35; transform: scale(1.35); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }

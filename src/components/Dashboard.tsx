@@ -147,7 +147,7 @@ export default function Dashboard() {
 
       {results.length > 0 && <section className="results"><h2>Latest results</h2>{results.map((result, index) => <pre key={index}>{JSON.stringify(result, null, 2)}</pre>)}</section>}
 
-      <footer><span>NF3D Auto Bot</span><p>Credentials stay server-side and are never stored in this public website code.</p><a href="#platforms">Back to campaign</a></footer>
+      <footer><span>NF3D Auto Bot</span><p>Credentials stay server-side and are never stored in this public website code.</p><div className="footer-links"><a href="/privacy">Privacy</a><a href="#platforms">Back to campaign</a></div></footer>
     </main>
   );
 }
