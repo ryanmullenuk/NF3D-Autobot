@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">NF3D</title>
+  <defs>
+    <linearGradient id="bg" x1="64" y1="36" x2="448" y2="476" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7fc5dc"/>
+      <stop offset=".48" stop-color="#2d708f"/>
+      <stop offset="1" stop-color="#103b54"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="118" y1="70" x2="350" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".38"/>
+      <stop offset=".55" stop-color="#fff" stop-opacity=".06"/>
+      <stop offset="1" stop-color="#fff" stop-opacity=".16"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="118" fill="url(#bg)"/>
+  <rect x="18" y="18" width="476" height="476" rx="101" fill="none" stroke="url(#shine)" stroke-width="3"/>
+  <path d="M105 345V168h39l92 109V168h45v177h-38l-93-109v109h-45Z" fill="#fff"/>
+  <path d="M312 168h104v39h-58v31h49v37h-49v70h-46V168Z" fill="#fff" fill-opacity=".94"/>
+  <path d="M303 363h119" stroke="#9dd8e9" stroke-width="8" stroke-linecap="round"/>
+  <text x="304" y="431" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700" letter-spacing="-5">3D</text>
+</svg>

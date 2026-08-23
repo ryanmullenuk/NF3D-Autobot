@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 type Platform = "instagram" | "pinterest" | "facebook" | "x" | "tiktok";
 type PlatformState = { enabled: boolean; count: number };
@@ -21,6 +21,35 @@ const initialState: Record<Platform, PlatformState> = {
   x: { enabled: true, count: 5 },
   tiktok: { enabled: false, count: 5 },
 };
+
+const particles = Array.from({ length: 30 }, (_, index) => ({
+  left: `${(index * 37 + 9) % 100}%`,
+  top: `${(index * 61 + 7) % 100}%`,
+  size: `${2 + (index % 4)}px`,
+  duration: `${15 + (index % 8) * 2}s`,
+  delay: `${-1 * (index % 11) * 1.7}s`,
+  drift: `${18 + (index % 6) * 8}px`,
+}));
+
+function ParticleField() {
+  return (
+    <div className="particle-field" aria-hidden="true">
+      {particles.map((particle, index) => (
+        <i
+          key={index}
+          style={{
+            "--particle-left": particle.left,
+            "--particle-top": particle.top,
+            "--particle-size": particle.size,
+            "--particle-duration": particle.duration,
+            "--particle-delay": particle.delay,
+            "--particle-drift": particle.drift,
+          } as CSSProperties}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [platforms, setPlatforms] = useState(initialState);
@@ -83,8 +112,9 @@ export default function Dashboard() {
 
   return (
     <main>
+      <ParticleField />
       <header className="topbar">
-        <div className="brand"><span className="bot">NF</span><div><strong>NF3D Auto Bot</strong><small>Social publishing workspace</small></div></div>
+        <div className="brand"><img className="brand-logo" src="/nf3d-logo.svg" alt="NF3D" /><div><strong>NF3D Auto Bot</strong><small>Social publishing workspace</small></div></div>
         <nav className="topnav" aria-label="Dashboard sections"><a href="#platforms">Campaign</a><a href="#status">Activity</a></nav>
         <div className="live"><i /> Next run 09:00 UK</div>
       </header>
