@@ -54,7 +54,7 @@ The GitHub Actions workflow triggers at both UTC times that can correspond to 09
 
 | Service | Requirement |
 | --- | --- |
-| Etsy | Seller App API key and numeric shop ID |
+| Etsy | Approved Seller App API key, numeric shop ID and read-only `listings_r` refresh token |
 | Instagram | Professional account, Meta app, content publishing permission and IG user ID |
 | Facebook | Meta app, Page access token and Page ID |
 | Pinterest | Approved app, `pins:write` access token and destination board ID |
