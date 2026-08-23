@@ -1,4 +1,4 @@
-import { getActiveProducts } from "./etsy";
+import { addPrimaryImages, getActiveProducts } from "./etsy";
 import { publish, configuration } from "./platforms";
 import { recentProductIds, saveRun } from "./store";
 import { selectProducts } from "./select";
@@ -9,7 +9,8 @@ export async function runCampaign(counts: Partial<Record<Platform, number>>, tri
   if (!requested.length) throw new Error("Select at least one platform and one post.");
   const config = configuration() as Record<Platform, { configured: boolean; missing: string[] }>;
   const max = Math.min(20, Math.max(...requested.map(([, count]) => Math.floor(count))));
-  const products = selectProducts(await getActiveProducts(), max, await recentProductIds());
+  const selected = selectProducts(await getActiveProducts(), max, await recentProductIds());
+  const products = await addPrimaryImages(selected);
   const results: PublishResult[] = [];
   for (const [platform, rawCount] of requested) {
     const count = Math.min(20, Math.max(1, Math.floor(rawCount)));

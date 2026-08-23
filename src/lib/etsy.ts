@@ -25,9 +25,15 @@ function headers(accessToken?: string) {
 }
 
 async function etsyFetch<T>(path: string, accessToken?: string): Promise<T> {
-  const response = await fetch(`${api}${path}`, { headers: headers(accessToken), cache: "no-store" });
-  if (!response.ok) throw new Error(`Etsy returned ${response.status}: ${await response.text()}`);
-  return response.json() as Promise<T>;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const response = await fetch(`${api}${path}`, { headers: headers(accessToken), cache: "no-store" });
+    if (response.ok) return response.json() as Promise<T>;
+    const message = await response.text();
+    if (response.status !== 429 || attempt === 3) throw new Error(`Etsy returned ${response.status}: ${message}`);
+    const retryAfter = Number(response.headers.get("retry-after"));
+    await new Promise((resolve) => setTimeout(resolve, Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1200 * (attempt + 1)));
+  }
+  throw new Error("Etsy catalogue request failed.");
 }
 
 async function catalogueAccessToken() {
@@ -64,7 +70,7 @@ function productType(listing: EtsyListing): EtsyProduct["type"] {
   return digital ? "Digital download" : "Physical product";
 }
 
-async function normalise(listing: EtsyListing, accessToken?: string): Promise<EtsyProduct> {
+function normalise(listing: EtsyListing): EtsyProduct {
   const money = listing.converted_price?.currency_code === "GBP" ? listing.converted_price : listing.price;
   return {
     id: String(listing.listing_id),
@@ -74,7 +80,7 @@ async function normalise(listing: EtsyListing, accessToken?: string): Promise<Et
     currency: money.currency_code,
     type: productType(listing),
     url: listing.url.split("?")[0],
-    imageUrl: await primaryImage(listing.listing_id, accessToken),
+    imageUrl: "",
     tags: listing.tags || [],
   };
 }
@@ -89,12 +95,22 @@ export async function getActiveProducts(): Promise<EtsyProduct[]> {
     const page = await etsyFetch<{ results: EtsyListing[] }>(`/shops/${shopId}/listings?state=active&limit=100&offset=${offset}`, accessToken);
     listings.push(...page.results);
   }
-  return Promise.all(listings.map((listing) => normalise(listing, accessToken)));
+  return listings.map(normalise);
+}
+
+export async function addPrimaryImages(products: EtsyProduct[]): Promise<EtsyProduct[]> {
+  const accessToken = await catalogueAccessToken();
+  const hydrated: EtsyProduct[] = [];
+  for (const product of products) {
+    hydrated.push({ ...product, imageUrl: await primaryImage(Number(product.id), accessToken) });
+    if (products.length > 1) await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  return hydrated;
 }
 
 export async function getProductById(id: string): Promise<EtsyProduct> {
   const accessToken = await catalogueAccessToken();
   const listing = await etsyFetch<EtsyListing>(`/listings/${encodeURIComponent(id)}`, accessToken);
   if ((listing as EtsyListing & { state?: string }).state !== "active") throw new Error("The Etsy listing is not active.");
-  return normalise(listing, accessToken);
+  return { ...normalise(listing), imageUrl: await primaryImage(listing.listing_id, accessToken) };
 }
